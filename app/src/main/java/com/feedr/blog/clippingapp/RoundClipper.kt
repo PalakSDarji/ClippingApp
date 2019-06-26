@@ -5,14 +5,11 @@ import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Context
 import android.graphics.*
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
-import android.graphics.BitmapFactory
-import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.TypedValue
 
@@ -22,20 +19,34 @@ class RoundClipper : View {
     private var animating: Boolean = false
     private var isOpen: Boolean = false
     private lateinit var bgRect: Rect
-    private lateinit var bgRectF: RectF
     private lateinit var clipRectF: RectF
     private lateinit var bgPaint: Paint
     private lateinit var clipPath: Path
 
-    private var cornerRadiusX : Float = 50F
-    private var cornerRadiusY : Float = 50F
+    private var cornerRadius : Float = 0f
 
-    private var clipRight : Float = 160f
-    private var clipBottom : Float = 160F
+    private var clipLeft : Float = 0F
+    private var clipTop : Float = 0f
+    private var clipRight : Float = 0f
+    private var clipBottom : Float = 0f
+
+    private var startClipLeft : Float = 0F
+    private var startClipTop : Float = 0f
+    private var startClipRight : Float = 0f
+
+    private var circleSize : Int = 0
 
     private lateinit var drawable: Drawable
 
     private lateinit var animatorSet : AnimatorSet
+
+    private var objectAnimatorTop = ObjectAnimator()
+
+    private var objectAnimatorLeft = ObjectAnimator()
+
+    private var objectAnimatorRight = ObjectAnimator()
+
+    private var objectAnimatorCornerRadius = ObjectAnimator()
 
     constructor(context: Context) : super(context) {
         init(null)
@@ -53,7 +64,7 @@ class RoundClipper : View {
             borderPadding = typedArray.getDimensionPixelSize(R.styleable.RoundClipper_switch_inner_padding, 5)*/
         }
     }
-
+/*
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
 
         //These are just best looking reference dimens to set the height of the view according to given width.
@@ -83,7 +94,7 @@ class RoundClipper : View {
         height = width * desiredHeight / desiredWidth
 
         setMeasuredDimension(width, width)
-    }
+    }*/
 
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -94,30 +105,86 @@ class RoundClipper : View {
 
     private fun createBg() {
 
-        bgRectF = RectF(100f, 100f, 400F, 400f)
-        bgRect = Rect(100, 100, 400, 400)
+        circleSize = width/3
 
-        clipRectF = RectF(100f, 100f, clipRight, clipBottom)
+        bgRect = Rect(0, 0, width, height)
+
+        clipTop = circleSize.toFloat()
+        clipLeft = circleSize.toFloat()
+        clipRight = circleSize.toFloat()
+
+        clipRectF = RectF(getClipLeft(), getClipTop(), getClipRight(), getClipBottom())
+
+        startClipTop = clipRectF.top
+        startClipLeft = clipRectF.left
+        startClipRight = clipRectF.right
 
         bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         bgPaint!!.color = Color.BLUE
 
-        animatorSet = AnimatorSet()
-
-       // val bitmap = BitmapFactory.decodeResource(resources, R.drawable.butterfly)
         drawable = resources.getDrawable(R.drawable.butterfly, null);
-        drawable.setBounds(bgRect);
+        drawable.bounds = bgRect;
 
+        animatorSet = AnimatorSet()
         clipPath = Path()
+
+        cornerRadius = clipRectF.width()/2
+
+        initAnimators()
+    }
+
+    private fun initAnimators() {
+
+        objectAnimatorTop.target = this
+        objectAnimatorTop.propertyName = "clipTop"
+        objectAnimatorTop.duration = 500
+        objectAnimatorTop.interpolator = AccelerateDecelerateInterpolator()
+
+        objectAnimatorLeft.target = this
+        objectAnimatorLeft.propertyName = "clipLeft"
+        objectAnimatorLeft.duration = 500
+        objectAnimatorLeft.interpolator = AccelerateDecelerateInterpolator()
+
+        objectAnimatorRight.target = this
+        objectAnimatorRight.propertyName = "clipRight"
+        objectAnimatorRight.duration = 500
+        objectAnimatorRight.interpolator = AccelerateDecelerateInterpolator()
+
+        objectAnimatorCornerRadius.target = this
+        objectAnimatorCornerRadius.propertyName = "cornerRadius"
+        objectAnimatorCornerRadius.duration = 500
+        objectAnimatorCornerRadius.interpolator = AccelerateDecelerateInterpolator()
+    }
+
+    private fun getClipLeft() : Float{
+        return (width/2) - (clipLeft/2)
+    }
+
+    private fun getClipTop() : Float{
+        return (height - clipTop)
+    }
+
+    private fun getClipRight() : Float{
+        return (height - clipRight)
+    }
+
+    private fun getClipBottom() : Float{
+        return height.toFloat()
     }
 
     override fun onDraw(canvas: Canvas) {
 
         clipPath.rewind()
-        clipRectF.right = clipRight
-        clipRectF.bottom = clipBottom
-        println("ClipppRectF : ${clipRectF.right} ${clipRectF.bottom} ")
-        clipPath.addRoundRect(clipRectF, cornerRadiusX, cornerRadiusY, Path.Direction.CCW)
+
+        if(animating){
+            clipRectF.top = clipTop
+            clipRectF.left = clipLeft
+            clipRectF.right = clipRight
+        }
+
+        println("ClipppRectF : ${clipRectF.left} ${clipRectF.top} ${clipRectF.right} ${clipRectF.bottom} ")
+
+        clipPath.addRoundRect(clipRectF, cornerRadius, cornerRadius, Path.Direction.CCW)
 
         canvas.clipPath(clipPath)
         //canvas.clipRect(clipRectF)
@@ -125,8 +192,7 @@ class RoundClipper : View {
         //canvas.drawRoundRect(bgRectF,cornerRadiusX,cornerRadiusY,bgPaint)
 
         drawable.draw(canvas)
-
-        //super.onDraw(canvas)
+        super.onDraw(canvas)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -147,23 +213,13 @@ class RoundClipper : View {
 
     private fun animateToOpen(){
 
-        val objectAnimatorX = ObjectAnimator.ofFloat(this, "clipRight", 160f,400f)
-        objectAnimatorX.duration = 500
-        objectAnimatorX.interpolator = AccelerateDecelerateInterpolator()
+        objectAnimatorTop.setFloatValues(startClipTop,0f)
+        objectAnimatorLeft.setFloatValues(startClipLeft,0f)
+        objectAnimatorRight.setFloatValues(startClipRight,width.toFloat())
+        objectAnimatorCornerRadius.setFloatValues((circleSize/2).toFloat(),5f)
 
-        val objectAnimatorY = ObjectAnimator.ofFloat(this, "clipBottom", 160f,400f)
-        objectAnimatorY.duration = 500
-        objectAnimatorY.interpolator = AccelerateDecelerateInterpolator()
+        animatorSet!!.playTogether(objectAnimatorTop,objectAnimatorLeft,objectAnimatorRight,objectAnimatorCornerRadius)
 
-        val objectAnimatorCornerRadiusX = ObjectAnimator.ofFloat(this, "cornerRadiusX", 50f,5f)
-        objectAnimatorCornerRadiusX.duration = 500
-        objectAnimatorCornerRadiusX.interpolator = AccelerateDecelerateInterpolator()
-
-        val objectAnimatorCornerRadiusY = ObjectAnimator.ofFloat(this, "cornerRadiusY", 50f,5f)
-        objectAnimatorCornerRadiusY.duration = 500
-        objectAnimatorCornerRadiusY.interpolator = AccelerateDecelerateInterpolator()
-
-        animatorSet!!.playTogether(objectAnimatorX,objectAnimatorY,objectAnimatorCornerRadiusX,objectAnimatorCornerRadiusY)
         animatorSet!!.addListener(object : Animator.AnimatorListener {
             override fun onAnimationStart(animator: Animator) {
                 animating = true
@@ -178,30 +234,22 @@ class RoundClipper : View {
 
             override fun onAnimationRepeat(animator: Animator) {}
         })
+
         animatorSet!!.start()
 
     }
 
     private fun animateToClose(){
 
-        animatorSet = AnimatorSet()
-        val objectAnimatorX = ObjectAnimator.ofFloat(this, "clipRight", 400f,160f)
-        objectAnimatorX.duration = 500
-        objectAnimatorX.interpolator = AccelerateDecelerateInterpolator()
+        animatorSet.cancel()
 
-        val objectAnimatorY = ObjectAnimator.ofFloat(this, "clipBottom", 400f,160f)
-        objectAnimatorY.duration = 500
-        objectAnimatorY.interpolator = AccelerateDecelerateInterpolator()
+        objectAnimatorTop.setFloatValues(0f,startClipTop)
+        objectAnimatorLeft.setFloatValues(0f,startClipLeft)
+        objectAnimatorRight.setFloatValues(width.toFloat(),startClipRight)
+        objectAnimatorCornerRadius.setFloatValues(5f,(circleSize/2).toFloat())
 
-        val objectAnimatorCornerRadiusX = ObjectAnimator.ofFloat(this, "cornerRadiusX", 5f,50f)
-        objectAnimatorCornerRadiusX.duration = 500
-        objectAnimatorCornerRadiusX.interpolator = AccelerateDecelerateInterpolator()
+        animatorSet!!.playTogether(objectAnimatorTop,objectAnimatorLeft,objectAnimatorRight,objectAnimatorCornerRadius)
 
-        val objectAnimatorCornerRadiusY = ObjectAnimator.ofFloat(this, "cornerRadiusY", 5f,50f)
-        objectAnimatorCornerRadiusY.duration = 500
-        objectAnimatorCornerRadiusY.interpolator = AccelerateDecelerateInterpolator()
-
-        animatorSet!!.playTogether(objectAnimatorX,objectAnimatorY,objectAnimatorCornerRadiusX,objectAnimatorCornerRadiusY)
         animatorSet!!.addListener(object : Animator.AnimatorListener {
             override fun onAnimationStart(animator: Animator) {
                 animating = true
@@ -216,8 +264,19 @@ class RoundClipper : View {
 
             override fun onAnimationRepeat(animator: Animator) {}
         })
+
         animatorSet!!.start()
 
+    }
+
+    fun setClipTop(clipTop: Float) {
+        this.clipTop = clipTop
+        println("clipTop  $clipTop")
+    }
+
+    fun setClipLeft(clipLeft: Float) {
+        this.clipLeft = clipLeft
+        println("clipLeft  $clipLeft")
     }
 
     fun setClipRight(clipRight: Float) {
@@ -225,20 +284,15 @@ class RoundClipper : View {
         println("clipRight  $clipRight")
     }
 
-    fun setCornerRadiusX(cornerRadiusX: Float) {
-        this.cornerRadiusX = cornerRadiusX
-        println("cornerRadiusX  $cornerRadiusX")
-    }
-
-    fun setCornerRadiusY(cornerRadiusX: Float) {
-        this.cornerRadiusY = cornerRadiusX
-        println("cornerRadiusY  $cornerRadiusY")
+    fun setCornerRadius(cornerRadius: Float) {
+        this.cornerRadius = cornerRadius
+        println("cornerRadius  $cornerRadius")
+        invalidate()
     }
 
     fun setClipBottom(clipBottom: Float) {
         this.clipBottom = clipBottom
         println("clipBottom  $clipBottom")
-        invalidate()
     }
 
     fun dpToPx(dp: Int): Int {
